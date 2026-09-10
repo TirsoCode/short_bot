@@ -1,124 +1,47 @@
 import cron from 'node-cron';
 import { syncGitHubMedia } from '@/lib/github';
-import { settingsQueries } from '@/lib/db/queries';
 import { renderQueue } from './render-queue';
-import { shortQueries } from '@/lib/db/queries';
+import { shortQueries, youtubeTokenQueries } from '@/lib/db/queries';
 import { YouTubeClient } from '@/lib/youtube';
-import { youtubeTokenQueries } from '@/lib/db/queries';
 import fs from 'fs';
 import path from 'path';
 
-let syncJob: cron.ScheduledTask | null = null;
-let cleanupJob: cron.ScheduledTask | null = null;
-let uploadJob: cron.ScheduledTask | null = null;
+let jobs: cron.ScheduledTask[] = [];
 
 export function startScheduler() {
   stopScheduler();
-
-  syncJob = cron.schedule('*/30 * * * *', async () => {
-    console.log('[Scheduler] Running GitHub sync...');
-    try {
-      const result = await syncGitHubMedia();
-      console.log(`[Scheduler] Sync completed: ${result.newMediaCount} new media, errors: ${result.errors.length}`);
-    } catch (error) {
-      console.error('[Scheduler] Sync failed:', error);
+  jobs.push(cron.schedule('*/30 * * * *', async () => {
+    console.log('[Scheduler] Syncing GitHub...');
+    const r = await syncGitHubMedia();
+    console.log(`[Scheduler] Sync: ${r.newMediaCount} new, ${r.errors.length} errors`);
+  }));
+  jobs.push(cron.schedule('0 3 * * *', async () => {
+    console.log('[Scheduler] Cleanup...');
+    const dir = path.join(process.cwd(), 'public', 'renders');
+    if (!fs.existsSync(dir)) return;
+    const now = Date.now();
+    fs.readdirSync(dir).forEach(f => {
+      const fp = path.join(dir, f);
+      if (now - fs.statSync(fp).mtimeMs > 7 * 24 * 60 * 60 * 1000) fs.unlinkSync(fp);
+    });
+  }));
+  jobs.push(cron.schedule('* * * * *', async () => {
+    const shorts = await shortQueries.findByStatus('accepted');
+    for (const s of shorts) {
+      if (!s.rendered_path) continue;
+      const tokens = await youtubeTokenQueries.find();
+      if (!tokens) continue;
+      try {
+        shortQueries.updateStatus(s.id, 'uploading');
+        const yt = new YouTubeClient(tokens);
+        const url = await yt.uploadShort(s, s.rendered_path);
+        shortQueries.updateStatus(s.id, 'published', { youtube_url: url, youtube_video_id: url.split('v=')[1]?.split('&')[0] });
+      } catch (e: any) {
+        shortQueries.updateStatus(s.id, 'failed', { error_message: e.message });
+      }
     }
-  });
-
-  cleanupJob = cron.schedule('0 3 * * *', async () => {
-    console.log('[Scheduler] Running cleanup...');
-    try {
-      await cleanupOldRenders();
-    } catch (error) {
-      console.error('[Scheduler] Cleanup failed:', error);
-    }
-  });
-
-  uploadJob = cron.schedule('* * * * *', async () => {
-    await processPendingUploads();
-  });
-
-  console.log('[Scheduler] Started (sync: 30min, cleanup: 3am, upload: 1min)');
+  }));
+  console.log('[Scheduler] Started');
 }
 
-export function stopScheduler() {
-  if (syncJob) {
-    syncJob.stop();
-    syncJob = null;
-  }
-  if (cleanupJob) {
-    cleanupJob.stop();
-    cleanupJob = null;
-  }
-  if (uploadJob) {
-    uploadJob.stop();
-    uploadJob = null;
-  }
-  console.log('[Scheduler] Stopped');
-}
-
-async function cleanupOldRenders() {
-  const rendersDir = path.join(process.cwd(), 'public', 'renders');
-  if (!fs.existsSync(rendersDir)) return;
-
-  const files = fs.readdirSync(rendersDir);
-  const now = Date.now();
-  const sevenDays = 7 * 24 * 60 * 60 * 1000;
-  let deleted = 0;
-
-  for (const file of files) {
-    const filePath = path.join(rendersDir, file);
-    const stats = fs.statSync(filePath);
-    if (now - stats.mtimeMs > sevenDays) {
-      fs.unlinkSync(filePath);
-      deleted++;
-    }
-  }
-
-  console.log(`[Scheduler] Cleaned up ${deleted} old render files`);
-}
-
-async function processPendingUploads() {
-  const acceptedShorts = await shortQueries.findByStatus('accepted');
-
-  for (const short of acceptedShorts) {
-    if (!short.renderedPath) continue;
-
-    const tokens = await youtubeTokenQueries.find();
-    if (!tokens) continue;
-
-    try {
-      await shortQueries.updateStatus(short.id, 'uploading');
-
-      const youtube = new YouTubeClient(tokens);
-      const url = await youtube.uploadShort(short, short.renderedPath);
-
-      await shortQueries.updateStatus(short.id, 'published', {
-        youtubeUrl: url,
-        youtubeVideoId: url.split('v=')[1]?.split('&')[0],
-      });
-
-      console.log(`[Scheduler] Uploaded short ${short.id} to ${url}`);
-    } catch (error) {
-      console.error(`[Scheduler] Failed to upload short ${short.id}:`, error);
-      await shortQueries.updateStatus(short.id, 'failed', {
-        errorMessage: error instanceof Error ? error.message : 'Upload failed',
-      });
-    }
-  }
-}
-
-export async function triggerSyncNow(): Promise<{ success: boolean; newMediaCount: number; errors: string[] }> {
-  return syncGitHubMedia();
-}
-
-export async function triggerRender(shortId: string): Promise<{ outputPath: string; duration: number }> {
-  return renderQueue.add(shortId);
-}
-
-export function getRenderQueueStatus() {
-  return {
-    currentJob: renderQueue.getCurrentJob(),
-    queueLength: renderQueue.getQueueLength(),
-  };
-}
+export function stopScheduler() { jobs.forEach(j => j.stop()); jobs = []; }

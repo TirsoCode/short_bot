@@ -1,88 +1,41 @@
 import { shortQueries } from '@/lib/db/queries';
 import { renderShort } from './remotion-render';
-import type { RenderJob } from '@/types';
 
-interface QueueItem {
-  shortId: string;
-  resolve: (value: { outputPath: string; duration: number }) => void;
-  reject: (error: Error) => void;
-}
+interface QueueItem { shortId: string; resolve: (v: any) => void; reject: (e: Error) => void; }
 
 class RenderQueue {
   private queue: QueueItem[] = [];
   private isProcessing = false;
-  private currentJob: RenderJob | null = null;
+  private currentJob: any = null;
 
-  getCurrentJob(): RenderJob | null {
-    return this.currentJob;
-  }
+  getCurrentJob() { return this.currentJob; }
+  getQueueLength() { return this.queue.length; }
 
-  getQueueLength(): number {
-    return this.queue.length;
-  }
-
-  async add(shortId: string): Promise<{ outputPath: string; duration: number }> {
-    return new Promise((resolve, reject) => {
+  async add(shortId: string) {
+    return new Promise<{ outputPath: string; duration: number }>((resolve, reject) => {
       this.queue.push({ shortId, resolve, reject });
       this.process();
     });
   }
 
   private async process() {
-    if (this.isProcessing || this.queue.length === 0) return;
-
+    if (this.isProcessing || !this.queue.length) return;
     this.isProcessing = true;
-
-    while (this.queue.length > 0) {
+    while (this.queue.length) {
       const job = this.queue.shift()!;
-      this.currentJob = {
-        id: job.shortId,
-        shortId: job.shortId,
-        status: 'processing',
-        progress: 0,
-        startedAt: new Date().toISOString(),
-      };
-
-      await shortQueries.updateStatus(job.shortId, 'rendering');
-
+      this.currentJob = { shortId: job.shortId, status: 'processing', progress: 0 };
       try {
-        const result = await renderShort(job.shortId, (progress) => {
-          this.currentJob = {
-            ...this.currentJob!,
-            progress,
-          };
-        });
-
-        this.currentJob = {
-          ...this.currentJob!,
-          status: 'completed',
-          progress: 100,
-          outputPath: result.outputPath,
-          completedAt: new Date().toISOString(),
-        };
-
-        await shortQueries.updateStatus(job.shortId, 'rendered', {
-          renderedPath: result.outputPath,
-          duration: result.duration,
-        });
-
+        shortQueries.updateStatus(job.shortId, 'rendering');
+        const result = await renderShort(job.shortId, (p: number) => { this.currentJob.progress = p; });
+        this.currentJob = { ...this.currentJob, status: 'completed', progress: 100 };
+        shortQueries.updateStatus(job.shortId, 'rendered', { rendered_path: result.outputPath, duration: result.duration });
         job.resolve(result);
-      } catch (error) {
-        this.currentJob = {
-          ...this.currentJob!,
-          status: 'failed',
-          error: error instanceof Error ? error.message : 'Unknown error',
-          completedAt: new Date().toISOString(),
-        };
-
-        await shortQueries.updateStatus(job.shortId, 'failed', {
-          errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        });
-
-        job.reject(error instanceof Error ? error : new Error('Unknown error'));
+      } catch (error: any) {
+        this.currentJob = { ...this.currentJob, status: 'failed', error: error.message };
+        shortQueries.updateStatus(job.shortId, 'failed', { error_message: error.message });
+        job.reject(error);
       }
     }
-
     this.currentJob = null;
     this.isProcessing = false;
   }

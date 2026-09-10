@@ -1,8 +1,8 @@
 import { Octokit } from '@octokit/rest';
-import { mediaQueries } from '@/lib/db/queries';
-import { settingsQueries } from '@/lib/db/queries';
-import type { MediaItem, SyncResult } from '@/types';
+import { mediaQueries, settingsQueries } from '@/lib/db/queries';
 import { getMediaType, generateId } from '@/lib/utils';
+import fs from 'fs';
+import path from 'path';
 
 export class GitHubClient {
   private octokit: Octokit;
@@ -19,122 +19,63 @@ export class GitHubClient {
     this.paths = paths;
   }
 
-  async syncMedia(): Promise<SyncResult> {
+  async syncMedia() {
     const errors: string[] = [];
     let newMediaCount = 0;
-
-    try {
-      for (const path of this.paths) {
-        const result = await this.syncPath(path);
-        newMediaCount += result.newMediaCount;
-        errors.push(...result.errors);
-      }
-    } catch (error) {
-      errors.push(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    for (const p of this.paths) {
+      const r = await this.syncPath(p);
+      newMediaCount += r.newMediaCount;
+      errors.push(...r.errors);
     }
-
     return { success: errors.length === 0, newMediaCount, errors };
   }
 
-  private async syncPath(dirPath: string): Promise<SyncResult> {
+  private async syncPath(dirPath: string): Promise<{ success: boolean; newMediaCount: number; errors: string[] }> {
     const errors: string[] = [];
     let newMediaCount = 0;
-
     try {
-      const contents = await this.getDirectoryContents(dirPath);
-
-      for (const item of contents) {
-        if (item.type === 'file') {
+      const contents = await this.octokit.repos.getContent({ owner: this.owner, repo: this.repo, path: dirPath, ref: this.branch });
+      const items = Array.isArray(contents.data) ? contents.data : [contents.data];
+      for (const item of items) {
+        if (item.type === 'file' && 'name' in item && 'sha' in item && 'size' in item && 'download_url' in item && 'html_url' in item) {
           const mediaType = getMediaType(item.name);
           if (mediaType !== 'unknown') {
             const exists = await mediaQueries.findBySha(item.sha);
-            if (!exists) {
-              await this.downloadAndStoreMedia(item, mediaType);
-              newMediaCount++;
+            if (!exists && item.download_url) {
+              const response = await fetch(item.download_url);
+              if (response.ok) {
+                const buf = Buffer.from(await response.arrayBuffer());
+                const publicDir = path.join(process.cwd(), 'public', 'media');
+                if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
+                const ext = path.extname(item.name);
+                const filename = `${generateId()}${ext}`;
+                fs.writeFileSync(path.join(publicDir, filename), buf);
+                await mediaQueries.create({ id: generateId(), name: item.name, path: item.path, type: mediaType, size: item.size, sha: item.sha, url: item.html_url, downloadedPath: `/media/${filename}` });
+                newMediaCount++;
+              }
             }
           }
-        } else if (item.type === 'dir') {
-          const subResult = await this.syncPath(item.path);
-          newMediaCount += subResult.newMediaCount;
-          errors.push(...subResult.errors);
+        } else if (item.type === 'dir' && 'path' in item) {
+          const sub = await this.syncPath(item.path);
+          newMediaCount += sub.newMediaCount;
+          errors.push(...sub.errors);
         }
       }
-    } catch (error) {
-      errors.push(`Failed to sync ${dirPath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } catch (error: any) {
+      errors.push(`Failed to sync ${dirPath}: ${error.message}`);
     }
-
     return { success: errors.length === 0, newMediaCount, errors };
   }
 
-  private async getDirectoryContents(path: string) {
-    const response = await this.octokit.repos.getContent({
-      owner: this.owner,
-      repo: this.repo,
-      path,
-      ref: this.branch,
-    });
-
-    return Array.isArray(response.data) ? response.data : [response.data];
-  }
-
-  private async downloadAndStoreMedia(
-    item: { name: string; path: string; sha: string; size: number; download_url: string | null; html_url: string },
-    type: 'video' | 'image'
-  ) {
-    if (!item.download_url) return;
-
-    const response = await fetch(item.download_url);
-    if (!response.ok) throw new Error(`Failed to download ${item.name}`);
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const publicDir = `${process.cwd()}/public/media`;
-    const fs = await import('fs');
-    const path = await import('path');
-
-    if (!fs.existsSync(publicDir)) {
-      fs.mkdirSync(publicDir, { recursive: true });
-    }
-
-    const ext = path.extname(item.name);
-    const filename = `${generateId()}${ext}`;
-    const filePath = path.join(publicDir, filename);
-
-    fs.writeFileSync(filePath, buffer);
-
-    await mediaQueries.create({
-      id: generateId(),
-      name: item.name,
-      path: item.path,
-      type,
-      size: item.size,
-      sha: item.sha,
-      url: item.html_url,
-      downloadedPath: `/media/${filename}`,
-    });
-  }
-
-  static async createFromSettings(): Promise<GitHubClient | null> {
-    const settings = await settingsQueries.find();
-    if (!settings || !settings.githubToken || !settings.githubOwner || !settings.githubRepo) {
-      return null;
-    }
-
-    return new GitHubClient(
-      settings.githubToken,
-      settings.githubOwner,
-      settings.githubRepo,
-      settings.githubBranch,
-      settings.githubPaths
-    );
+  static async createFromSettings() {
+    const s = await settingsQueries.find();
+    if (!s || !s.github_token || !s.github_owner || !s.github_repo) return null;
+    return new GitHubClient(s.github_token, s.github_owner, s.github_repo, s.github_branch, s.github_paths);
   }
 }
 
-export async function syncGitHubMedia(): Promise<SyncResult> {
+export async function syncGitHubMedia() {
   const client = await GitHubClient.createFromSettings();
-  if (!client) {
-    return { success: false, newMediaCount: 0, errors: ['GitHub not configured'] };
-  }
+  if (!client) return { success: false, newMediaCount: 0, errors: ['GitHub not configured'] };
   return client.syncMedia();
 }
