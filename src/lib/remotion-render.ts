@@ -1,5 +1,5 @@
 import { shortQueries, mediaQueries, hookQueries, settingsQueries } from '@/lib/db/queries';
-import { execa } from 'execa';
+import { execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
@@ -33,9 +33,9 @@ export async function renderShort(shortId: string, onProgress?: (progress: numbe
 
   onProgress?.(10);
   try {
-    await execa('npx', ['remotion', 'render', 'src/index.ts', 'ShortComposition', outputPath, `--props=${propsPath}`, '--concurrency=1'], {
+    execSync(`npx remotion render src/index.ts ShortComposition "${outputPath}" --props="${propsPath}" --concurrency=1`, {
       cwd: path.join(process.cwd(), 'remotion'),
-      stdout: 'pipe', stderr: 'pipe',
+      stdio: 'pipe',
     });
     onProgress?.(100);
     return { outputPath, duration: maxDuration };
