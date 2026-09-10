@@ -1,25 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function middleware(request: NextRequest) {
+const PUBLIC_PATHS = ['/api/login', '/api/auth/check'];
+
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith('/api/') || pathname.startsWith('/_next/') || pathname.includes('.')) {
-    return NextResponse.next();
+  if (pathname.startsWith('/api/cron/')) {
+    const secret = process.env.CRON_SECRET;
+    if (!secret) return NextResponse.next();
+    if (request.headers.get('authorization') === `Bearer ${secret}`) return NextResponse.next();
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (pathname === '/login') {
-    return NextResponse.next();
-  }
-
-  const session = request.cookies.get('session')?.value;
-
-  if (!session) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  const isPublic = PUBLIC_PATHS.includes(pathname);
+  if (!isPublic && !request.cookies.get('session')) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const loginUrl = new URL('/login', request.url);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/api/:path*', '/dashboard/:path*', '/settings/:path*'],
 };

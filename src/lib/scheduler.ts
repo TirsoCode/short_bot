@@ -1,12 +1,13 @@
-import cron from 'node-cron';
+import cron, { ScheduledTask } from 'node-cron';
 import { syncGitHubMedia } from '@/lib/github';
 import { renderQueue } from './render-queue';
 import { shortQueries, youtubeTokenQueries } from '@/lib/db/queries';
 import { YouTubeClient } from '@/lib/youtube';
+import { publicToFsPath, rendersDir } from '@/lib/paths';
 import fs from 'fs';
 import path from 'path';
 
-let jobs: cron.ScheduledTask[] = [];
+let jobs: ScheduledTask[] = [];
 
 export function startScheduler() {
   stopScheduler();
@@ -17,7 +18,7 @@ export function startScheduler() {
   }));
   jobs.push(cron.schedule('0 3 * * *', async () => {
     console.log('[Scheduler] Cleanup...');
-    const dir = path.join(process.cwd(), 'public', 'renders');
+    const dir = rendersDir;
     if (!fs.existsSync(dir)) return;
     const now = Date.now();
     fs.readdirSync(dir).forEach(f => {
@@ -33,8 +34,8 @@ export function startScheduler() {
       if (!tokens) continue;
       try {
         shortQueries.updateStatus(s.id, 'uploading');
-        const yt = new YouTubeClient(tokens);
-        const url = await yt.uploadShort(s, s.rendered_path);
+        const yt = await YouTubeClient.create(tokens);
+        const url = await yt.uploadShort(s, publicToFsPath(s.rendered_path));
         shortQueries.updateStatus(s.id, 'published', { youtube_url: url, youtube_video_id: url.split('v=')[1]?.split('&')[0] });
       } catch (e: any) {
         shortQueries.updateStatus(s.id, 'failed', { error_message: e.message });

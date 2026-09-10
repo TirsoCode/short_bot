@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { shortQueries } from '@/lib/db/queries';
+import { shortQueries, youtubeTokenQueries } from '@/lib/db/queries';
 import { YouTubeClient } from '@/lib/youtube';
-import { youtubeTokenQueries } from '@/lib/db/queries';
+import { publicToFsPath } from '@/lib/paths';
 
 export async function POST(request: NextRequest) {
+  let shortId = '';
   try {
     const body = await request.json();
-    const { shortId } = body;
+    shortId = body.shortId || '';
 
     if (!shortId) {
       return NextResponse.json({ error: 'Short ID required' }, { status: 400 });
@@ -17,9 +18,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Short not found' }, { status: 404 });
     }
 
-    if (!short.renderedPath) {
+    const rendered_path = short.rendered_path;
+    if (!rendered_path) {
       return NextResponse.json({ error: 'Short not rendered yet' }, { status: 400 });
     }
+    const renderedPath = publicToFsPath(rendered_path);
 
     const tokens = await youtubeTokenQueries.find();
     if (!tokens) {
@@ -28,8 +31,8 @@ export async function POST(request: NextRequest) {
 
     await shortQueries.updateStatus(shortId, 'uploading');
 
-    const youtube = new YouTubeClient(tokens);
-    const url = await youtube.uploadShort(short, short.renderedPath);
+    const youtube = await YouTubeClient.create(tokens);
+    const url = await youtube.uploadShort(short, renderedPath);
 
     await shortQueries.updateStatus(shortId, 'published', {
       youtubeUrl: url,
@@ -39,11 +42,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, url });
   } catch (error) {
     console.error('Upload error:', error);
-    await shortQueries.updateStatus(
-      (await request.json()).shortId ?? '',
-      'failed',
-      { errorMessage: error instanceof Error ? error.message : 'Upload failed' }
-    );
+    if (shortId) {
+      await shortQueries.updateStatus(
+        shortId,
+        'failed',
+        { errorMessage: error instanceof Error ? error.message : 'Upload failed' }
+      );
+    }
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Upload failed' }, { status: 500 });
   }
 }

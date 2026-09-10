@@ -4,6 +4,7 @@ import { youtubeTokenQueries } from '@/lib/db/queries';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
+  const baseUrl = request.nextUrl.origin;
   const code = searchParams.get('code');
   const error = searchParams.get('error');
 
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     try {
-      const tokens = await exchangeCodeForTokens(code);
+      const tokens = await exchangeCodeForTokens(code, baseUrl);
       await youtubeTokenQueries.upsert(tokens);
       return NextResponse.redirect(new URL('/settings?youtube_connected=true', request.url));
     } catch (err) {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const url = await getAuthUrl();
+    const url = await getAuthUrl(baseUrl);
     return NextResponse.redirect(url);
   } catch (err) {
     console.error('Auth URL generation failed:', err);

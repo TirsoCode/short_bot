@@ -10,7 +10,7 @@ import { Toaster, toast } from 'sonner';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [token, setToken] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -21,20 +21,20 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token.trim()) return;
+    if (!password.trim()) return;
     setLoading(true);
 
     const res = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: token }),
+      body: JSON.stringify({ password }),
     });
 
     if (res.ok) {
       router.push('/dashboard');
     } else {
       const data = await res.json();
-      toast.error(data.error || 'Token incorrecto');
+      toast.error(data.error || 'Contraseña incorrecta');
       setLoading(false);
     }
   };
@@ -48,25 +48,22 @@ export default function LoginPage() {
             <svg className="h-8 w-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
           </div>
           <CardTitle className="text-xl">Short Bot</CardTitle>
-          <CardDescription>Introduce tu GitHub PAT</CardDescription>
+          <CardDescription>Introduce tu contraseña para continuar</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="token">GitHub Personal Access Token</Label>
+              <Label htmlFor="password">Contraseña</Label>
               <Input
-                id="token"
+                id="password"
                 type="password"
-                placeholder="ghp_xxxxxxxxxxxx"
-                value={token}
-                onChange={e => setToken(e.target.value)}
+                placeholder="••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
                 autoFocus
               />
-              <p className="text-xs text-muted-foreground">
-                Lo usamos para acceder a tu repo y como clave de acceso.
-              </p>
             </div>
-            <Button type="submit" className="w-full" disabled={loading || !token.trim()}>
+            <Button type="submit" className="w-full" disabled={loading || !password.trim()}>
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>

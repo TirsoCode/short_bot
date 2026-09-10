@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/useToast';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 
 export function HookManager() {
-  const { hooks, isLoading } = useHooks();
+  const { data: hooks = [], isLoading } = useHooks();
   const createHook = useCreateHook();
   const updateHook = useUpdateHook();
   const deleteHook = useDeleteHook();

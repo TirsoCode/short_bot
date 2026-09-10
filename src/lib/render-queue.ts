@@ -12,7 +12,7 @@ class RenderQueue {
   getQueueLength() { return this.queue.length; }
 
   async add(shortId: string) {
-    return new Promise<{ outputPath: string; duration: number }>((resolve, reject) => {
+    return new Promise<{ outputPath: string; publicUrl: string; duration: number }>((resolve, reject) => {
       this.queue.push({ shortId, resolve, reject });
       this.process();
     });
@@ -28,7 +28,7 @@ class RenderQueue {
         shortQueries.updateStatus(job.shortId, 'rendering');
         const result = await renderShort(job.shortId, (p: number) => { this.currentJob.progress = p; });
         this.currentJob = { ...this.currentJob, status: 'completed', progress: 100 };
-        shortQueries.updateStatus(job.shortId, 'rendered', { rendered_path: result.outputPath, duration: result.duration });
+        shortQueries.updateStatus(job.shortId, 'rendered', { rendered_path: result.publicUrl, duration: result.duration });
         job.resolve(result);
       } catch (error: any) {
         this.currentJob = { ...this.currentJob, status: 'failed', error: error.message };

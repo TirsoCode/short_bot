@@ -2,17 +2,28 @@ import { google, youtube_v3 } from 'googleapis';
 import { youtubeTokenQueries, settingsQueries } from '@/lib/db/queries';
 
 export class YouTubeClient {
-  private youtube: youtube_v3.Youtube;
+  private youtube: youtube_v3.Youtube = null as any;
   private refreshToken: string;
+  private accessToken: string;
 
-  constructor(tokens: { accessToken: string; refreshToken: string }) {
+  private constructor(tokens: { accessToken: string; refreshToken: string }) {
+    this.accessToken = tokens.accessToken;
     this.refreshToken = tokens.refreshToken;
-    const settings = settingsQueries.find();
+  }
+
+  static async create(tokens: { accessToken: string; refreshToken: string }): Promise<YouTubeClient> {
+    const client = new YouTubeClient(tokens);
+    await client.init();
+    return client;
+  }
+
+  private async init() {
+    const settings = await settingsQueries.find();
     const clientId = settings?.youtube_client_id ?? process.env.YOUTUBE_CLIENT_ID ?? '';
     const clientSecret = settings?.youtube_client_secret ?? process.env.YOUTUBE_CLIENT_SECRET ?? '';
 
     const auth = new google.auth.OAuth2(clientId, clientSecret);
-    auth.setCredentials({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken });
+    auth.setCredentials({ access_token: this.accessToken, refresh_token: this.refreshToken });
 
     auth.on('tokens', async (newTokens) => {
       if (newTokens.access_token) {
@@ -43,24 +54,24 @@ export class YouTubeClient {
   static async createFromStoredTokens() {
     const tokens = await youtubeTokenQueries.find();
     if (!tokens) return null;
-    return new YouTubeClient(tokens);
+    return YouTubeClient.create(tokens);
   }
 }
 
-export async function getAuthUrl() {
+export async function getAuthUrl(baseUrl: string) {
   const s = await settingsQueries.find();
   const clientId = s?.youtube_client_id ?? process.env.YOUTUBE_CLIENT_ID ?? '';
   const clientSecret = s?.youtube_client_secret ?? process.env.YOUTUBE_CLIENT_SECRET ?? '';
   if (!clientId) throw new Error('YouTube Client ID not configured');
-  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, `${process.env.NEXTAUTH_URL ?? 'http://localhost:3000'}/api/youtube/callback`);
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, `${baseUrl}/api/youtube/auth`);
   return oauth2Client.generateAuthUrl({ access_type: 'offline', scope: ['https://www.googleapis.com/auth/youtube.upload'], prompt: 'consent' });
 }
 
-export async function exchangeCodeForTokens(code: string) {
+export async function exchangeCodeForTokens(code: string, baseUrl: string) {
   const s = await settingsQueries.find();
   const clientId = s?.youtube_client_id ?? process.env.YOUTUBE_CLIENT_ID ?? '';
   const clientSecret = s?.youtube_client_secret ?? process.env.YOUTUBE_CLIENT_SECRET ?? '';
-  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, `${process.env.NEXTAUTH_URL ?? 'http://localhost:3000'}/api/youtube/callback`);
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, `${baseUrl}/api/youtube/auth`);
   const { tokens } = await oauth2Client.getToken(code);
   return { accessToken: tokens.access_token!, refreshToken: tokens.refresh_token!, expiryDate: tokens.expiry_date! };
 }

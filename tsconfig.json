@@ -23,5 +23,5 @@
     "baseUrl": "."
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "remotion"]
+  "exclude": ["node_modules", "remotion", "frontend", "backend"]
 }

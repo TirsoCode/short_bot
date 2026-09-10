@@ -111,7 +111,6 @@ export const ShortPlayer: React.FC<{ short: Short }> = ({ short }) => {
           className="w-full h-full object-cover"
           playsInline
           muted={isMuted}
-          volume={volume}
         />
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
           <div className="flex items-center gap-2">

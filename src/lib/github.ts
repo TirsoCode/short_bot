@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { mediaQueries, settingsQueries } from '@/lib/db/queries';
 import { getMediaType, generateId } from '@/lib/utils';
+import { mediaDir, ensureDirs } from '@/lib/paths';
 import fs from 'fs';
 import path from 'path';
 
@@ -45,12 +46,12 @@ export class GitHubClient {
               const response = await fetch(item.download_url);
               if (response.ok) {
                 const buf = Buffer.from(await response.arrayBuffer());
-                const publicDir = path.join(process.cwd(), 'public', 'media');
-                if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
+                ensureDirs();
+                if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
                 const ext = path.extname(item.name);
                 const filename = `${generateId()}${ext}`;
-                fs.writeFileSync(path.join(publicDir, filename), buf);
-                await mediaQueries.create({ id: generateId(), name: item.name, path: item.path, type: mediaType, size: item.size, sha: item.sha, url: item.html_url, downloadedPath: `/media/${filename}` });
+                fs.writeFileSync(path.join(mediaDir, filename), buf);
+                await mediaQueries.create({ id: generateId(), name: item.name, path: item.path, type: mediaType, size: item.size, sha: item.sha, url: item.html_url, downloadedPath: `/api/media/stream/${filename}` });
                 newMediaCount++;
               }
             }
@@ -70,7 +71,7 @@ export class GitHubClient {
   static async createFromSettings() {
     const s = await settingsQueries.find();
     if (!s || !s.github_token || !s.github_owner || !s.github_repo) return null;
-    return new GitHubClient(s.github_token, s.github_owner, s.github_repo, s.github_branch, s.github_paths);
+    return new GitHubClient(s.github_token, s.github_owner, s.github_repo, s.github_branch, s.githubPaths);
   }
 }
 

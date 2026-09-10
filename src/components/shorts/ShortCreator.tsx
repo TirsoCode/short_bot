@@ -16,8 +16,8 @@ import { useToast } from '@/hooks/useToast';
 import type { MediaItem, HookPhrase } from '@/types';
 
 export const ShortCreator: React.FC = () => {
-  const { media, isLoading: mediaLoading } = useMedia();
-  const { hooks, isLoading: hooksLoading } = useHooks();
+  const { data: media = [], isLoading: mediaLoading } = useMedia();
+  const { data: hooks = [], isLoading: hooksLoading } = useHooks();
   const { generateShort, isGenerating } = useShortGeneration();
   const { toast } = useToast();
 

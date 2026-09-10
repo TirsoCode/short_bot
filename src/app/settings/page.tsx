@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { SessionProvider } from 'next-auth/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,7 @@ function SettingsContent() {
     githubOwner: '',
     githubRepo: '',
     githubBranch: 'main',
-    githubPaths: 'videos,screenshots',
+    githubPaths: 'videos,fotos',
     githubToken: '',
     youtubeClientId: '',
     youtubeClientSecret: '',
@@ -155,10 +154,10 @@ function SettingsContent() {
 export default function SettingsPage() {
   const [queryClient] = useState(() => new QueryClient());
   return (
-    <SessionProvider>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <React.Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando...</div>}>
         <SettingsContent />
-      </QueryClientProvider>
-    </SessionProvider>
+      </React.Suspense>
+    </QueryClientProvider>
   );
 }

@@ -1,13 +1,9 @@
 import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { cookies } from 'next/headers';
 
 export default async function Home() {
-  const session = await getServerSession(authOptions);
+  const cookieStore = await cookies();
+  const session = cookieStore.get('session')?.value;
 
-  if (!session) {
-    redirect('/login');
-  } else {
-    redirect('/dashboard');
-  }
+  redirect(session ? '/dashboard' : '/login');
 }

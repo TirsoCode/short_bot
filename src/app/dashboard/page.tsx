@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { SessionProvider } from 'next-auth/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -20,8 +19,8 @@ import { Loader2, RefreshCw, Plus, Image, Video, LayoutList, Settings } from 'lu
 import type { Short, MediaItem } from '@/types';
 
 function DashboardContent() {
-  const { media, isLoading: mediaLoading } = useMedia();
-  const { shorts, isLoading: shortsLoading, updateShortStatus, deleteShort } = useShorts();
+  const { data: media = [], isLoading: mediaLoading } = useMedia();
+  const { shorts, isLoading: shortsLoading, acceptShort, rejectShort, deleteShort } = useShorts();
   const syncMutation = useGitHubSync();
   const { toast } = useToast();
   const router = useRouter();
@@ -49,7 +48,7 @@ function DashboardContent() {
 
   const handleAccept = async (id: string) => {
     try {
-      await updateShortStatus(id, 'accepted');
+      await acceptShort(id);
       toast({ title: 'Aceptado', description: 'Subiendo a YouTube...', variant: 'success' });
     } catch {
       toast({ title: 'Error', description: 'No se pudo aceptar', variant: 'destructive' });
@@ -59,7 +58,7 @@ function DashboardContent() {
   const handleReject = async (id: string) => {
     const reason = prompt('Motivo del rechazo:');
     try {
-      await updateShortStatus(id, 'rejected', { rejectReason: reason || '' });
+      await rejectShort(id, reason || '');
       toast({ title: 'Rechazado', description: 'Short eliminado de la cola', variant: 'default' });
     } catch {
       toast({ title: 'Error', description: 'No se pudo rechazar', variant: 'destructive' });
@@ -182,10 +181,8 @@ export default function DashboardPage() {
   }));
 
   return (
-    <SessionProvider>
-      <QueryClientProvider client={queryClient}>
-        <DashboardContent />
-      </QueryClientProvider>
-    </SessionProvider>
+    <QueryClientProvider client={queryClient}>
+      <DashboardContent />
+    </QueryClientProvider>
   );
 }
