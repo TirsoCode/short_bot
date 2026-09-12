@@ -46,6 +46,7 @@ export async function generateAutoShort(publish: boolean): Promise<boolean> {
     tags: idea?.tags ?? [],
     status: 'draft',
   });
+  if (!short) return false;
 
   await renderQueue.add(short.id);
   if (publish) await shortQueries.updateStatus(short.id, 'accepted');

@@ -5,7 +5,6 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   experimental: {
-    instrumentationHook: true,
     serverActions: {
       bodySizeLimit: '2mb',
     },
