@@ -1,5 +1,6 @@
-export type { ShortStyle } from '@/lib/short-style';
-export { DEFAULT_STYLE } from '@/lib/short-style';
+import { type ShortStyle, DEFAULT_STYLE } from '@/lib/short-style';
+export type { ShortStyle };
+export { DEFAULT_STYLE };
 
 export interface MediaItem {
   id: string;
