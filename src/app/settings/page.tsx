@@ -22,6 +22,7 @@ function SettingsContent() {
   const [saving, setSaving] = useState(false);
 
   const [settings, setSettings] = useState({
+    mediaPaths: 'videos,fotos',
     githubOwner: '',
     githubRepo: '',
     githubBranch: 'main',
@@ -40,6 +41,7 @@ function SettingsContent() {
     fetch('/api/settings').then(r => r.json()).then(data => {
       if (data.settings) {
         setSettings({
+          mediaPaths: (data.settings.mediaPaths || ['videos', 'fotos']).join(','),
           githubOwner: data.settings.githubOwner || '',
           githubRepo: data.settings.githubRepo || '',
           githubBranch: data.settings.githubBranch || 'main',
@@ -72,6 +74,7 @@ function SettingsContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...settings,
+          mediaPaths: settings.mediaPaths.split(',').map(s => s.trim()).filter(Boolean),
           githubPaths: settings.githubPaths.split(',').map(s => s.trim()).filter(Boolean),
         }),
       });
@@ -92,6 +95,25 @@ function SettingsContent() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Carpetas locales</CardTitle>
+            <CardDescription>Mete aquí los vídeos y fotos (descargados de la web o tuyos) que quieras usar</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Carpetas a escanear (separadas por coma)</Label>
+              <Input value={settings.mediaPaths} onChange={e => setSettings({...settings, mediaPaths: e.target.value})} placeholder="videos,fotos" />
+            </div>
+            <div className="flex items-start justify-between gap-4 rounded-lg bg-slate-50 p-4 text-sm">
+              <p className="text-muted-foreground">
+                El bot busca medios automáticamente cada {settings.syncIntervalMinutes} min y con el botón
+                "Importar" del dashboard. Los medios quedan en tu carpeta y se copian a la biblioteca.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>GitHub</CardTitle>

@@ -44,6 +44,7 @@ export interface Settings {
   githubBranch: string;
   githubPaths: string[];
   githubToken: string;
+  mediaPaths: string[];
   youtubeClientId: string;
   youtubeClientSecret: string;
   youtubeRefreshToken?: string;

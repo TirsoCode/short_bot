@@ -12,7 +12,7 @@ import { MediaGrid } from '@/components/media/MediaGrid';
 import { HookManager } from '@/components/settings/HookManager';
 import { useMedia } from '@/hooks/useMedia';
 import { useShorts } from '@/hooks/useShorts';
-import { useGitHubSync } from '@/hooks/useGitHubSync';
+import { useMediaSync } from '@/hooks/useMediaSync';
 import { useToast } from '@/hooks/useToast';
 import { useRouter } from 'next/navigation';
 import { Loader2, RefreshCw, Plus, Image, Video, LayoutList, Settings } from 'lucide-react';
@@ -21,7 +21,7 @@ import type { Short, MediaItem } from '@/types';
 function DashboardContent() {
   const { data: media = [], isLoading: mediaLoading } = useMedia();
   const { shorts, isLoading: shortsLoading, acceptShort, rejectShort, deleteShort } = useShorts();
-  const syncMutation = useGitHubSync();
+  const syncMutation = useMediaSync();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -37,12 +37,12 @@ function DashboardContent() {
     try {
       const result = await syncMutation.mutateAsync();
       if (result.success) {
-        toast({ title: 'Sync completo', description: `${result.newMediaCount} medios nuevos`, variant: 'success' });
+        toast({ title: 'Importación completa', description: `${result.newMediaCount} medios nuevos`, variant: 'success' });
       } else {
-        toast({ title: 'Sync con errores', description: result.errors.join(', '), variant: 'destructive' });
+        toast({ title: 'Importación con errores', description: result.errors.join(', '), variant: 'destructive' });
       }
     } catch {
-      toast({ title: 'Error', description: 'No se pudo sincronizar', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudieron importar los medios', variant: 'destructive' });
     }
   };
 
@@ -91,7 +91,7 @@ function DashboardContent() {
             </Button>
             <Button size="sm" onClick={handleSync} disabled={syncMutation.isPending}>
               {syncMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-              Sync GitHub
+              Importar
             </Button>
           </div>
         </div>

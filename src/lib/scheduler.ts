@@ -1,5 +1,5 @@
 import cron, { ScheduledTask } from 'node-cron';
-import { syncGitHubMedia } from '@/lib/github';
+import { syncLocalMedia } from '@/lib/local-media';
 import { renderQueue } from './render-queue';
 import { shortQueries, youtubeTokenQueries } from '@/lib/db/queries';
 import { YouTubeClient } from '@/lib/youtube';
@@ -12,8 +12,8 @@ let jobs: ScheduledTask[] = [];
 export function startScheduler() {
   stopScheduler();
   jobs.push(cron.schedule('*/30 * * * *', async () => {
-    console.log('[Scheduler] Syncing GitHub...');
-    const r = await syncGitHubMedia();
+    console.log('[Scheduler] Syncing local folders...');
+    const r = await syncLocalMedia();
     console.log(`[Scheduler] Sync: ${r.newMediaCount} new, ${r.errors.length} errors`);
   }));
   jobs.push(cron.schedule('0 3 * * *', async () => {

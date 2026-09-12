@@ -1,20 +1,20 @@
 # Short Bot
 
-Generador automático de YouTube Shorts desde tu repositorio de GitHub.
+Generador automático de YouTube Shorts con tus propios videos y fotos.
 
 ## Qué hace
 
-1. **Sync**: Baja vídeos y capturas de tu repo GitHub (cron cada 30min + manual)
-2. **Genera**: Remotion crea Shorts 9:16 con frase gancho + tus medios
-3. **Revisión**: Dashboard en localhost:3000 → Accept/Reject
-4. **Upload**: Sube automáticamente a YouTube
+1. **Importa**: El bot escanea automáticamente las carpetas `videos/` y `fotos/` (cron cada 30 min + botón "Importar") y copia los medios a tu biblioteca.
+2. **Genera**: Remotion crea Shorts 9:16 con frase gancho + tus medios.
+3. **Revisión**: Dashboard en localhost:3000 → "Aceptar y Subir" o "Rechazar".
+4. **Upload**: Sube automáticamente a YouTube al aceptar.
 
 ## Stack
 
 - **Frontend**: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui
-- **DB**: SQLite (Drizzle ORM)
+- **DB**: SQLite (sql.js)
 - **Video**: Remotion
-- **APIs**: GitHub (Octokit), YouTube (googleapis)
+- **APIs**: YouTube (googleapis)
 
 ## Setup
 
@@ -24,7 +24,7 @@ npm install
 
 # 2. Configurar variables de entorno
 cp .env.example .env.local
-# Editar .env.local con tus credenciales
+# Genera una contraseña secreta para LOGIN_PASSWORD (nunca uses una por defecto)
 
 # 3. Inicializar base de datos
 npm run db:init
@@ -36,23 +36,20 @@ npm run dev
 ## Cómo usar
 
 1. Abre http://localhost:3000
-2. Entra con tu GitHub PAT como clave
-3. Ve a **Configuración** → rellena GitHub + YouTube
-4. Haz **Sync GitHub** para descargar medios
-5. Ve a **Crear Short** → elige frase + medios → Generar
-6. En **Revisar** → Accept para subir a YouTube
+2. Entra con la contraseña de `LOGIN_PASSWORD` (defínela en tu `.env.local` o como secret/GitHub secret)
+3. Mete tus videos y fotos en `videos/` y `fotos/` (formatos: mp4, mov, webm, jpg, png, gif, webp)
+4. Ve a **Dashboard** → pulsa **Importar** (o espera al cron automático)
+5. Ve a **Crear Short** → elige frase gancho + medios → Generar
+6. En **Revisar** → Aceptar y Subir para subirlo a YouTube
 
-## Credenciales
+## YouTube OAuth
 
-### GitHub PAT
-1. GitHub → Settings → Developer settings → Personal access tokens
-2. Crear token con scope `repo`
+Para que el bot suba a YouTube:
 
-### YouTube OAuth
 1. Google Cloud Console → APIs & Services → Credentials
 2. Crear OAuth 2.0 Client ID (Web application)
 3. Redirect URI: `http://localhost:3000/api/youtube/callback`
-4. Copiar Client ID + Secret en Configuración
+4. Copiar Client ID + Secret en **Configuración** del dashboard
 5. Click "Conectar con YouTube"
 
 ## Comandos
@@ -64,3 +61,6 @@ npm run db:init      # Init DB
 npm run db:studio    # Drizzle Studio
 ```
 
+## Opcional: importar desde GitHub
+
+Si además quieres importar medios desde un repositorio GitHub, ve a **Configuración** y rellena los campos de GitHub (owner, repo, token PAT, etc.).

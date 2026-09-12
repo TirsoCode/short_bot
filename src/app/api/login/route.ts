@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const LOGIN_PASSWORD = process.env.LOGIN_PASSWORD || 'hola123#';
+const LOGIN_PASSWORD = process.env.LOGIN_PASSWORD;
 
 export async function POST(request: NextRequest) {
   try {
+    if (!LOGIN_PASSWORD) {
+      return NextResponse.json({ error: 'Login no configurado: define LOGIN_PASSWORD' }, { status: 500 });
+    }
+
     const { password } = await request.json();
 
     if (password !== LOGIN_PASSWORD) {
