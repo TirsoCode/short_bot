@@ -4,10 +4,11 @@ Generador automático de YouTube Shorts con tus propios videos y fotos.
 
 ## Qué hace
 
-1. **Importa**: El bot escanea automáticamente las carpetas `videos/` y `fotos/` (cron cada 30 min + botón "Importar") y copia los medios a tu biblioteca.
-2. **Genera**: Remotion crea Shorts 9:16 con frase gancho + tus medios.
-3. **Revisión**: Dashboard en localhost:3000 → "Aceptar y Subir" o "Rechazar".
-4. **Upload**: Sube automáticamente a YouTube al aceptar.
+1. **Importa**: El bot escanea automáticamente las carpetas `videos/` y `fotos/` (cron cada 30 min + botón "Importar" en el dashboard) y copia los medios a tu biblioteca.
+2. **Robot diario**: Crea y renderiza `N` shorts/día (configurable en Ajustes) con el botón "Cambiar" de IA (OpenCode Zen, modelo `big-pickle`) generando ganchos viables para YouTube con tus medios.
+3. **Estilo con IA**: En **Configuración** puedes escribirle al bot cosas como "el fondo es muy oscuro, acláralo" y él ajusta los colores/tipografía del vídeo antes de renderizar.
+4. **Revisión**: Dashboard → "Aceptar y Subir" o "Rechazar". Si activas "Publicar automáticamente" **no** pasan por revisión y se suben solos a YouTube.
+5. **Upload**: Sube automáticamente a YouTube al aceptar.
 
 ## Stack
 
@@ -25,6 +26,7 @@ npm install
 # 2. Configurar variables de entorno
 cp .env.example .env.local
 # Genera una contraseña secreta para LOGIN_PASSWORD (nunca uses una por defecto)
+# Opcional: OPENCODE_ZEN_API_KEY (https://opencode.ai/zen) para ganchos/estilo con IA (por defecto usa el modelo big-pickle)
 
 # 3. Inicializar base de datos
 npm run db:init

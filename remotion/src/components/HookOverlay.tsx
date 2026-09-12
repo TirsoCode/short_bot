@@ -1,5 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, interpolate, Spring, spring, useCurrentFrame, useVideoConfig } from 'remotion';
+import { DEFAULT_STYLE_PROPS, type ShortStyleProps } from '../compositions/Short';
 
 interface HookOverlayProps {
   text: string;
@@ -7,6 +8,7 @@ interface HookOverlayProps {
   toFrame: number;
   width: number;
   height: number;
+  style?: Partial<ShortStyleProps>;
 }
 
 export const HookOverlay: React.FC<HookOverlayProps> = ({
@@ -15,9 +17,11 @@ export const HookOverlay: React.FC<HookOverlayProps> = ({
   toFrame,
   width,
   height,
+  style: userStyle,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const style: ShortStyleProps = { ...DEFAULT_STYLE_PROPS, ...(userStyle ?? {}) };
 
   const fadeInFrames = 30;
   const fadeOutFrames = 30;
@@ -66,22 +70,22 @@ export const HookOverlay: React.FC<HookOverlayProps> = ({
       >
         <div
           style={{
-            background: 'rgba(0, 0, 0, 0.75)',
+            background: style.hookBg,
             backdropFilter: 'blur(10px)',
             borderRadius: 24,
             padding: '32px 48px',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            border: `1px solid ${style.hookBorder}`,
+            boxShadow: `0 25px 50px -12px ${style.hookBg}`,
           }}
         >
           <span
             style={{
-              fontSize: 52,
+              fontSize: style.hookFontSize,
               fontWeight: 800,
-              color: '#ffffff',
+              color: style.hookTextColor,
               lineHeight: 1.15,
               letterSpacing: '-0.02em',
-              textShadow: '0 4px 24px rgba(0, 0, 0, 0.5)',
+              textShadow: `0 4px 24px ${style.hookBg}`,
               fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >

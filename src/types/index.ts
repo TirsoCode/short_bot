@@ -1,3 +1,6 @@
+export type { ShortStyle } from '@/lib/short-style';
+export { DEFAULT_STYLE } from '@/lib/short-style';
+
 export interface MediaItem {
   id: string;
   name: string;
@@ -45,6 +48,10 @@ export interface Settings {
   githubPaths: string[];
   githubToken: string;
   mediaPaths: string[];
+  autoShortsPerDay: number;
+  autoPublish: boolean;
+  autoRuns: string[];
+  styleJson: ShortStyle;
   youtubeClientId: string;
   youtubeClientSecret: string;
   youtubeRefreshToken?: string;

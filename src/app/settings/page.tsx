@@ -10,9 +10,12 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/useToast';
 import { useYouTubeStatus } from '@/hooks/useYouTubeUpload';
-import { ArrowLeft, Loader2, Check, X, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, X, ExternalLink, Sparkles } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Settings, HookPhrase } from '@/types';
+import { DEFAULT_STYLE } from '@/types';
+import { Textarea } from '@/components/ui/textarea';
 
 function SettingsContent() {
   const router = useRouter();
@@ -21,8 +24,16 @@ function SettingsContent() {
   const { data: ytStatus } = useYouTubeStatus();
   const [saving, setSaving] = useState(false);
 
+  const [aiRequest, setAiRequest] = useState('');
+  const [aiResult, setAiResult] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
+  const [aiModel, setAiModel] = useState('big-pickle');
+
   const [settings, setSettings] = useState({
     mediaPaths: 'videos,fotos',
+    autoShortsPerDay: 2,
+    autoPublish: false,
     githubOwner: '',
     githubRepo: '',
     githubBranch: 'main',
@@ -42,6 +53,8 @@ function SettingsContent() {
       if (data.settings) {
         setSettings({
           mediaPaths: (data.settings.mediaPaths || ['videos', 'fotos']).join(','),
+          autoShortsPerDay: data.settings.autoShortsPerDay ?? 2,
+          autoPublish: !!(data.settings.autoPublish ?? false),
           githubOwner: data.settings.githubOwner || '',
           githubRepo: data.settings.githubRepo || '',
           githubBranch: data.settings.githubBranch || 'main',
@@ -65,6 +78,54 @@ function SettingsContent() {
     if (ytError) toast({ title: 'Error YouTube', description: ytError, variant: 'destructive' });
     if (ytConnected) toast({ title: 'YouTube conectado', description: 'Cuenta vinculada correctamente', variant: 'success' });
   }, [searchParams, toast]);
+
+  useEffect(() => {
+    fetch('/api/zen/style').then(r => r.json()).then(data => {
+      setAiConfigured(data.configured ?? false);
+      setAiModel(data.model || 'big-pickle');
+      if (data.style) setAiResult(JSON.stringify(data.style, null, 2));
+    }).catch(() => setAiConfigured(false));
+  }, []);
+
+  const handleAiChange = async () => {
+    if (!aiRequest.trim() || !aiConfigured) return;
+    setAiBusy(true);
+    try {
+      const res = await fetch('/api/zen/style', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request: aiRequest }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok && data.style) {
+        setAiResult(JSON.stringify(data.style, null, 2));
+        toast({ title: 'Estilo generado', description: 'Revisa el JSON y guárdalo para que aplique a los próximos renders', variant: 'success' });
+      } else {
+        toast({ title: 'La IA no respondió', description: data.error || 'Revisa tu OPENCODE_ZEN_API_KEY', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo contactar con OpenCode Zen', variant: 'destructive' });
+    }
+    setAiBusy(false);
+  };
+
+  const handleAiSave = async (style: string) => {
+    let parsed: any = null;
+    try { parsed = JSON.parse(style); } catch { toast({ title: 'JSON inválido', variant: 'destructive' }); return; }
+    setSaving(true);
+    try {
+      await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ styleJson: parsed }),
+      });
+      setAiResult(JSON.stringify(parsed, null, 2));
+      toast({ title: 'Estilo guardado', description: 'Se aplicará en los próximos renders', variant: 'success' });
+    } catch {
+      toast({ title: 'Error al guardar', variant: 'destructive' });
+    }
+    setSaving(false);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -109,6 +170,81 @@ function SettingsContent() {
               <p className="text-muted-foreground">
                 El bot busca medios automáticamente cada {settings.syncIntervalMinutes} min y con el botón
                 "Importar" del dashboard. Los medios quedan en tu carpeta y se copian a la biblioteca.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Robot diario</CardTitle>
+            <CardDescription>El bot crea y renderiza shorts automáticamente con tus frases y medios</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label>Shorts por día</Label>
+                <Input type="number" min={1} max={24} value={settings.autoShortsPerDay}
+                  onChange={e => setSettings({...settings, autoShortsPerDay: Math.max(1, Math.min(24, +e.target.value || 1))})} />
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-lg bg-slate-50 p-4">
+                <div>
+                  <Label className="text-base">Publicar automáticamente</Label>
+                  <p className="text-sm text-muted-foreground">Si está apagado, los shorts quedan listos en "Revisar" para que los subas tú</p>
+                </div>
+                <Switch checked={settings.autoPublish} onCheckedChange={(v) => setSettings({...settings, autoPublish: v})} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-blue-500" />
+              Estilo del vídeo (IA)
+            </CardTitle>
+            <CardDescription>
+              Dile al bot qué quieres cambiar y {aiModel} (modelo de OpenCode Zen) ajustará el estilo de los vídeos
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {aiConfigured === false ? (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
+                No hay <code className="font-mono">OPENCODE_ZEN_API_KEY</code> configurada. Crea tu API key en
+                {' '}<a className="underline" href="https://opencode.ai/zen" target="_blank" rel="noreferrer">opencode.ai/zen</a>{' '}
+                y añádela al archivo <code className="font-mono">.env.local</code>.
+              </div>
+            ) : null}
+            <div className="space-y-2">
+              <Label>¿Qué quieres cambiar?</Label>
+              <Textarea value={aiRequest}
+                onChange={e => setAiRequest(e.target.value)}
+                placeholder="Ej: el fondo es muy oscuro, acláralo y ponle un toque azul"
+                rows={2} />
+            </div>
+            <Button onClick={handleAiChange} disabled={aiBusy || !aiRequest.trim() || aiConfigured === false}>
+              {aiBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              Cambiar con {aiModel}
+            </Button>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Estilo actual / resultado</Label>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => handleAiSave(JSON.stringify(DEFAULT_STYLE))} disabled={saving}>
+                    Restablecer
+                  </Button>
+                  <Button size="sm" onClick={() => handleAiSave(aiResult)} disabled={saving || !aiResult.trim()}>
+                    {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                    Guardar estilo
+                  </Button>
+                </div>
+              </div>
+              <Textarea value={aiResult} onChange={e => setAiResult(e.target.value)} rows={10}
+                className="font-mono text-xs" />
+              <p className="text-xs text-muted-foreground">
+                Campos: background, hookTextColor, hookBg, hookBorder, hookFontSize (px), accent, outroText, outroSubtext.
+                El estilo se aplica en los próximos renders.
               </p>
             </div>
           </CardContent>

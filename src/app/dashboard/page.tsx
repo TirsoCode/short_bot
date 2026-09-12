@@ -13,6 +13,7 @@ import { HookManager } from '@/components/settings/HookManager';
 import { useMedia } from '@/hooks/useMedia';
 import { useShorts } from '@/hooks/useShorts';
 import { useMediaSync } from '@/hooks/useMediaSync';
+import { useGitHubSync } from '@/hooks/useGitHubSync';
 import { useToast } from '@/hooks/useToast';
 import { useRouter } from 'next/navigation';
 import { Loader2, RefreshCw, Plus, Image, Video, LayoutList, Settings } from 'lucide-react';
@@ -22,6 +23,7 @@ function DashboardContent() {
   const { data: media = [], isLoading: mediaLoading } = useMedia();
   const { shorts, isLoading: shortsLoading, acceptShort, rejectShort, deleteShort } = useShorts();
   const syncMutation = useMediaSync();
+  const gitSyncMutation = useGitHubSync();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -33,13 +35,13 @@ function DashboardContent() {
   const failedShorts = shorts.filter(s => s.status === 'failed');
   const allShorts = [...renderedShorts, ...draftShorts, ...failedShorts];
 
-  const handleSync = async () => {
+  const handleSync = async (mutation: { mutateAsync: () => Promise<{ success: boolean; newMediaCount: number; errors: string[] }> }, okTitle: string) => {
     try {
-      const result = await syncMutation.mutateAsync();
+      const result = await mutation.mutateAsync();
       if (result.success) {
-        toast({ title: 'Importación completa', description: `${result.newMediaCount} medios nuevos`, variant: 'success' });
+        toast({ title: okTitle, description: `${result.newMediaCount} medios nuevos`, variant: 'success' });
       } else {
-        toast({ title: 'Importación con errores', description: result.errors.join(', '), variant: 'destructive' });
+        toast({ title: `${okTitle} con errores`, description: result.errors.join(', '), variant: 'destructive' });
       }
     } catch {
       toast({ title: 'Error', description: 'No se pudieron importar los medios', variant: 'destructive' });
@@ -89,7 +91,11 @@ function DashboardContent() {
             <Button variant="outline" size="sm" onClick={() => router.push('/settings')}>
               <Settings className="h-4 w-4 mr-2" /> Configuración
             </Button>
-            <Button size="sm" onClick={handleSync} disabled={syncMutation.isPending}>
+            <Button size="sm" variant="outline" onClick={() => handleSync(gitSyncMutation, 'Sync GitHub')} disabled={gitSyncMutation.isPending}>
+              {gitSyncMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Sync GitHub
+            </Button>
+            <Button size="sm" onClick={() => handleSync(syncMutation, 'Importación completa')} disabled={syncMutation.isPending}>
               {syncMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
               Importar
             </Button>

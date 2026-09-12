@@ -1,5 +1,6 @@
 import cron, { ScheduledTask } from 'node-cron';
 import { syncLocalMedia } from '@/lib/local-media';
+import { maybeRunAutoShorts } from '@/lib/auto-shorts';
 import { renderQueue } from './render-queue';
 import { shortQueries, youtubeTokenQueries } from '@/lib/db/queries';
 import { YouTubeClient } from '@/lib/youtube';
@@ -15,6 +16,10 @@ export function startScheduler() {
     console.log('[Scheduler] Syncing local folders...');
     const r = await syncLocalMedia();
     console.log(`[Scheduler] Sync: ${r.newMediaCount} new, ${r.errors.length} errors`);
+  }));
+  jobs.push(cron.schedule('0 * * * *', async () => {
+    const ran = await maybeRunAutoShorts();
+    if (ran) console.log(`[Scheduler] Auto-generated ${ran} short(s)`);
   }));
   jobs.push(cron.schedule('0 3 * * *', async () => {
     console.log('[Scheduler] Cleanup...');

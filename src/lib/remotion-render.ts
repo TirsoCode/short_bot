@@ -1,4 +1,5 @@
 import { shortQueries, mediaQueries, hookQueries, settingsQueries } from '@/lib/db/queries';
+import { normalizeStyle, DEFAULT_STYLE } from '@/lib/short-style';
 import { execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -35,7 +36,7 @@ export async function renderShort(shortId: string, onProgress?: (progress: numbe
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
   const outputPath = path.join(outputDir, `${shortId}.mp4`);
 
-  const inputProps = { hookText: short.hook_text, media: mediaForRemotion, width, height, fps, durationInFrames: totalFrames };
+  const inputProps = { hookText: short.hook_text, media: mediaForRemotion, width, height, fps, durationInFrames: totalFrames, style: normalizeStyle(settings?.styleJson, DEFAULT_STYLE) };
   const propsPath = path.join(outputDir, `${shortId}-props.json`);
   fs.writeFileSync(propsPath, JSON.stringify(inputProps));
 

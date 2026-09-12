@@ -1,7 +1,29 @@
 import React, { useMemo } from 'react';
-import { AbsoluteFill, interpolate, useVideoConfig, Spring, spring, Easing } from 'remotion';
+import { AbsoluteFill, interpolate, useVideoConfig, useCurrentFrame } from 'remotion';
 import { HookOverlay } from '../components/HookOverlay';
 import { MediaSequence } from '../components/MediaSequence';
+
+export interface ShortStyleProps {
+  background: string;
+  hookTextColor: string;
+  hookBg: string;
+  hookBorder: string;
+  hookFontSize: number;
+  accent: string;
+  outroText: string;
+  outroSubtext: string;
+}
+
+export const DEFAULT_STYLE_PROPS: ShortStyleProps = {
+  background: '#000000',
+  hookTextColor: '#ffffff',
+  hookBg: 'rgba(0, 0, 0, 0.75)',
+  hookBorder: 'rgba(255, 255, 255, 0.15)',
+  hookFontSize: 52,
+  accent: '#3b82f6',
+  outroText: '¡Sígueme para más!',
+  outroSubtext: 'Suscríbete y activa la campanita 🔔',
+};
 
 interface ShortCompositionProps {
   hookText: string;
@@ -15,6 +37,7 @@ interface ShortCompositionProps {
   height: number;
   fps: number;
   durationInFrames: number;
+  style?: Partial<ShortStyleProps>;
 }
 
 export const ShortComposition: React.FC<ShortCompositionProps> = ({
@@ -24,8 +47,10 @@ export const ShortComposition: React.FC<ShortCompositionProps> = ({
   height,
   fps,
   durationInFrames,
+  style: userStyle,
 }) => {
   const videoConfig = useVideoConfig();
+  const style: ShortStyleProps = { ...DEFAULT_STYLE_PROPS, ...(userStyle ?? {}) };
 
   const hookDurationFrames = 3 * fps;
   const outroDurationFrames = 1 * fps;
@@ -42,13 +67,14 @@ export const ShortComposition: React.FC<ShortCompositionProps> = ({
   );
 
   return (
-    <AbsoluteFill style={{ background: 'black' }}>
+    <AbsoluteFill style={{ background: style.background }}>
       <HookOverlay
         text={hookText}
         fromFrame={0}
         toFrame={hookDurationFrames}
         width={width}
         height={height}
+        style={style}
       />
 
       <MediaSequence
@@ -60,7 +86,7 @@ export const ShortComposition: React.FC<ShortCompositionProps> = ({
         fps={fps}
       />
 
-      <Outro fromFrame={mediaEndFrame} toFrame={adjustedDurationInFrames} width={width} height={height} />
+      <Outro fromFrame={mediaEndFrame} toFrame={adjustedDurationInFrames} width={width} height={height} style={style} />
     </AbsoluteFill>
   );
 };
@@ -70,7 +96,8 @@ const Outro: React.FC<{
   toFrame: number;
   width: number;
   height: number;
-}> = ({ fromFrame, toFrame, width, height }) => {
+  style: ShortStyleProps;
+}> = ({ fromFrame, toFrame, style }) => {
   const frame = useCurrentFrame();
   const opacity = interpolate(frame, [fromFrame, fromFrame + 30], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
 
@@ -81,15 +108,15 @@ const Outro: React.FC<{
         alignItems: 'center',
         justifyContent: 'center',
         opacity,
-        background: 'rgba(0,0,0,0.8)',
+        background: style.accent,
       }}
     >
-      <div style={{ textAlign: 'center', color: 'white', padding: 40 }}>
-        <h1 style={{ fontSize: 48, fontWeight: 'bold', marginBottom: 16 }}>¡Sígueme para más!</h1>
-        <p style={{ fontSize: 28, opacity: 0.8 }}>Suscríbete y activa la campanita 🔔</p>
+      <div style={{ textAlign: 'center', color: style.hookTextColor, padding: 40 }}>
+        <h1 style={{ fontSize: 52, fontWeight: 'bold', marginBottom: 16, textShadow: `0 4px 20px ${style.hookBg}` }}>
+          {style.outroText}
+        </h1>
+        <p style={{ fontSize: 30, opacity: 0.85, color: style.accent }}>{style.outroSubtext}</p>
       </div>
     </AbsoluteFill>
   );
 };
-
-import { useCurrentFrame } from 'remotion';
